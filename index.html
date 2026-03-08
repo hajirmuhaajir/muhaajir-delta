@@ -1,0 +1,1899 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Muhaajir Delta — Smart Text Diff Checker</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <!-- jsDiff library -->
+  <script src="https://cdn.jsdelivr.net/npm/diff@5.2.0/dist/diff.min.js"></script>
+  <!-- Google Fonts: JetBrains Mono (code feel) + DM Sans (clean UI) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ============================================================
+       CSS VARIABLES & RESET
+       ============================================================ */
+    :root {
+      --navy: #020617;
+      --navy-1: #0a1628;
+      --navy-2: #0f1e35;
+      --navy-3: #162033;
+      --navy-4: #1e2d45;
+      --slate: #94a3b8;
+      --slate-dim: #4a5a72;
+      --slate-bright: #cbd5e1;
+      --blue: #3b82f6;
+      --blue-dim: #1d4ed8;
+      --blue-glow: rgba(59, 130, 246, 0.18);
+      --blue-glow-sm: rgba(59, 130, 246, 0.08);
+      --white: #f1f5f9;
+      --white-dim: #e2e8f8;
+      /* diff colors */
+      --del-bg: rgba(255, 238, 240, 0.12);
+      --del-bg-full: #ffeef0;
+      --del-color: #f87171;
+      --del-gutter: rgba(239, 68, 68, 0.25);
+      --add-bg: rgba(230, 255, 237, 0.10);
+      --add-bg-full: #e6ffed;
+      --add-color: #4ade80;
+      --add-gutter: rgba(74, 222, 128, 0.25);
+      --radius: 10px;
+      --radius-sm: 6px;
+      --mono: 'JetBrains Mono', monospace;
+      --sans: 'DM Sans', sans-serif;
+      --transition: 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+      --shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+      --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.3);
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: var(--sans);
+      background: var(--navy);
+      color: var(--white);
+      min-height: 100vh;
+      font-size: 14px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      /* subtle grid pattern */
+      background-image: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(59, 130, 246, 0.08) 0%, transparent 60%),
+        linear-gradient(rgba(148, 163, 184, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148, 163, 184, 0.03) 1px, transparent 1px);
+      background-size: auto, 40px 40px, 40px 40px;
+    }
+
+    /* ============================================================
+       SCROLLBAR
+       ============================================================ */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--navy-2);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--slate-dim);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--slate);
+    }
+
+    /* ============================================================
+       HEADER
+       ============================================================ */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      height: 62px;
+      background: rgba(10, 22, 40, 0.92);
+      border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .logo-img {
+      height: 42px;
+      width: auto;
+      object-fit: contain;
+      /* ensure logo pops on dark bg */
+      filter: brightness(1.05) drop-shadow(0 0 8px rgba(59, 130, 246, 0.35));
+    }
+
+    .brand-name {
+      font-family: var(--mono);
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: var(--white);
+    }
+
+    .brand-name span {
+      color: var(--blue);
+    }
+
+    .header-center {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--blue);
+      background: var(--blue-glow);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      border-radius: 20px;
+      padding: 2px 10px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .stat-pill {
+      font-size: 11px;
+      font-family: var(--mono);
+      color: var(--slate);
+      background: var(--navy-3);
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      border-radius: 20px;
+      padding: 3px 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .stat-pill .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--slate-dim);
+    }
+    .stat-pill .dot.del {
+      background: var(--del-color);
+    }
+    .stat-pill .dot.add {
+      background: var(--add-color);
+    }
+
+    .footer {
+      background: var(--midnight);
+      color: rgba(255, 255, 255, 0.7);
+      padding: 40px 20px 30px;
+      text-align: center;
+      border-top: 1px solid rgba(59, 130, 246, 0.2);
+      position: relative;
+      overflow: hidden;
+      width: 100%;
+      margin-top: 2rem;
+    }
+
+/* ═══════════════════════════
+   FOOTER (dari footer-essentials)
+═══════════════════════════ */
+.footer {
+  background: var(--midnight);
+  color: rgba(255,255,255,0.7);
+  padding: 40px 20px 30px;
+  text-align: center;
+  border-top: 1px solid rgba(59,130,246,0.2);
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  margin-top: 2rem;
+}
+
+.footer::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 80% 60% at 50% 100%, rgba(59,130,246,0.05) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.footer-logo {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  object-fit: contain;
+  border: 1.5px solid rgba(59,130,246,0.4);
+  padding: 6px;
+  background: rgba(255,255,255,0.05);
+  margin-bottom: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.footer-name {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.3rem;
+  color: #fff;
+  margin-bottom: 8px;
+  position: relative;
+  z-index: 1;
+  font-weight: 700;
+}
+
+.footer-tagline {
+  font-size: 0.8rem;
+  color: rgba(255,255,255,0.4);
+  margin-bottom: 28px;
+  letter-spacing: 0.3px;
+  position: relative;
+  z-index: 1;
+}
+
+.footer-links {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  position: relative;
+  z-index: 1;
+}
+
+.footer-link {
+  color: rgba(255,255,255,0.7);
+  text-decoration: none;
+  font-size: 0.85rem;
+  padding: 6px 14px;
+  border-radius: 40px;
+  border: 1px solid rgba(255,255,255,0.1);
+  transition: all var(--transition, 0.3s);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+
+.footer-link:hover {
+  background: rgba(59,130,246,0.15);
+  border-color: rgba(59,130,246,0.4);
+  color: var(--blue);
+}
+
+.social-links {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+  position: relative;
+  z-index: 1;
+}
+
+.social-link {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.6);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  transition: all 0.3s;
+}
+
+.social-link:hover {
+  background: rgba(255,255,255,0.08);
+  border-color: var(--blue);
+  color: var(--blue);
+  transform: translateY(-3px);
+}
+
+.github-links {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+  position: relative;
+  z-index: 1;
+}
+
+.github-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(255,255,255,0.65);
+  text-decoration: none;
+  font-size: 0.8rem;
+  padding: 6px 14px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 40px;
+  transition: all 0.3s;
+}
+
+.github-link:hover {
+  border-color: rgba(59,130,246,0.4);
+  color: var(--blue);
+  background: rgba(59,130,246,0.07);
+}
+
+.license-tag {
+  background: var(--blue);
+  color: var(--midnight);
+  padding: 2px 6px;
+  border-radius: 20px;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.footer-divider {
+  width: 60px;
+  height: 1px;
+  background: rgba(59,130,246,0.3);
+  margin: 0 auto 20px;
+  position: relative;
+  z-index: 1;
+}
+
+.copyright {
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.35);
+  letter-spacing: 0.5px;
+  position: relative;
+  z-index: 1;
+}
+
+    /* Biar icon social media agak gedean dikit */
+    .social-link i {
+      font-size: 1.2rem;
+      transition: transform 0.3s ease;
+    }
+
+    .social-link i:hover {
+      transform: scale(1.2);
+      /* Efek zoom pas di-hover */
+    }
+
+    .github-links {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 28px;
+      flex-wrap: wrap;
+      position: relative;
+      z-index: 1;
+    }
+
+    .github-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: rgba(255, 255, 255, 0.65);
+      text-decoration: none;
+      font-size: 0.8rem;
+      padding: 6px 14px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 40px;
+      transition: all 0.3s;
+    }
+
+    .github-link:hover {
+      border-color: rgba(59, 130, 246, 0.4);
+      color: var(--blue);
+      background: rgba(59, 130, 246, 0.07);
+    }
+
+    .license-tag {
+      background: var(--blue);
+      color: var(--midnight);
+      padding: 2px 6px;
+      border-radius: 20px;
+      font-size: 0.6rem;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+
+    .footer-divider {
+      width: 60px;
+      height: 1px;
+      background: rgba(59, 130, 246, 0.3);
+      margin: 0 auto 20px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .copyright {
+      font-size: 0.75rem;
+      color: rgba(255, 255, 255, 0.35);
+      letter-spacing: 0.5px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ============================================================
+       MAIN LAYOUT
+       ============================================================ */
+    .app-wrapper {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 20px 20px 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ============================================================
+       TOOLBAR
+       ============================================================ */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      background: var(--navy-1);
+      border: 1px solid rgba(148, 163, 184, 0.1);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .toolbar-section {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .toolbar-divider {
+      width: 1px;
+      height: 28px;
+      background: rgba(148, 163, 184, 0.15);
+      margin: 0 4px;
+    }
+
+    /* BUTTONS */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 16px;
+      border-radius: var(--radius-sm);
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all var(--transition);
+      white-space: nowrap;
+      outline: none;
+    }
+
+    .btn:focus-visible {
+      box-shadow: 0 0 0 2px var(--blue);
+    }
+
+    .btn-primary {
+      background: var(--blue);
+      color: #fff;
+      box-shadow: 0 2px 12px rgba(59, 130, 246, 0.4);
+    }
+    .btn-primary:hover {
+      background: #5b9af8;
+      box-shadow: 0 4px 20px rgba(59, 130, 246, 0.55);
+      transform: translateY(-1px) scale(1.02);
+    }
+    .btn-primary:active {
+      transform: scale(0.98);
+    }
+
+    .btn-ghost {
+      background: var(--navy-3);
+      color: var(--slate-bright);
+      border: 1px solid rgba(148, 163, 184, 0.15);
+    }
+    .btn-ghost:hover {
+      background: var(--navy-4);
+      color: var(--white);
+      border-color: rgba(148, 163, 184, 0.3);
+    }
+
+    .btn-danger {
+      background: transparent;
+      color: #f87171;
+      border: 1px solid rgba(248, 113, 113, 0.25);
+    }
+    .btn-danger:hover {
+      background: rgba(248, 113, 113, 0.08);
+      border-color: rgba(248, 113, 113, 0.45);
+    }
+
+    .btn-sm {
+      padding: 4px 10px;
+      font-size: 11px;
+    }
+
+    .btn svg {
+      flex-shrink: 0;
+    }
+
+    /* TOGGLE GROUP (split/unified, line/word) */
+    .toggle-group {
+      display: flex;
+      background: var(--navy-3);
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      border-radius: var(--radius-sm);
+      padding: 2px;
+      gap: 2px;
+    }
+
+    .toggle-option {
+      padding: 5px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--slate);
+      background: transparent;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all var(--transition);
+      font-family: var(--sans);
+    }
+
+    .toggle-option.active {
+      background: var(--blue);
+      color: #fff;
+      box-shadow: 0 1px 6px rgba(59, 130, 246, 0.4);
+    }
+
+    .toggle-option:not(.active):hover {
+      background: var(--navy-4);
+      color: var(--white);
+    }
+
+    /* CHECKBOX */
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--slate);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      user-select: none;
+      transition: color var(--transition);
+    }
+    .checkbox-label:hover {
+      color: var(--white);
+    }
+
+    .checkbox-label input[type="checkbox"] {
+      appearance: none;
+      width: 15px;
+      height: 15px;
+      border: 1.5px solid var(--slate-dim);
+      border-radius: 3px;
+      background: var(--navy-3);
+      cursor: pointer;
+      transition: all var(--transition);
+      position: relative;
+      flex-shrink: 0;
+    }
+    .checkbox-label input[type="checkbox"]:checked {
+      background: var(--blue);
+      border-color: var(--blue);
+    }
+    .checkbox-label input[type="checkbox"]:checked::after {
+      content: '';
+      position: absolute;
+      left: 3px;
+      top: 1px;
+      width: 5px;
+      height: 9px;
+      border: 2px solid #fff;
+      border-top: none;
+      border-left: none;
+      transform: rotate(45deg);
+    }
+
+    /* ============================================================
+       INPUT PANES
+       ============================================================ */
+    .input-area {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    @media (max-width: 768px) {
+      .input-area {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .pane {
+      background: var(--navy-1);
+      border: 1px solid rgba(148, 163, 184, 0.1);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      transition: border-color var(--transition);
+    }
+
+    .pane:focus-within {
+      border-color: rgba(59, 130, 246, 0.4);
+      box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.15), var(--shadow-sm);
+    }
+
+    .pane-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: var(--navy-2);
+      border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+      gap: 10px;
+    }
+
+    .pane-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--slate);
+    }
+
+    .pane-label.original {
+      color: #f87171;
+    }
+    .pane-label.changed {
+      color: var(--add-color);
+    }
+
+    .pane-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .char-count {
+      font-size: 10px;
+      font-family: var(--mono);
+      color: var(--slate-dim);
+    }
+
+    /* file upload hidden */
+    input[type="file"] {
+      display: none;
+    }
+
+    .upload-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 9px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--slate);
+      background: var(--navy-3);
+      border: 1px dashed rgba(148, 163, 184, 0.2);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all var(--transition);
+      font-family: var(--sans);
+    }
+    .upload-btn:hover {
+      color: var(--blue);
+      border-color: rgba(59, 130, 246, 0.4);
+      background: var(--blue-glow-sm);
+    }
+
+    textarea {
+      flex: 1;
+      resize: none;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--white-dim);
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 1.7;
+      padding: 14px;
+      min-height: 200px;
+      caret-color: var(--blue);
+    }
+
+    textarea::placeholder {
+      color: rgba(148, 163, 184, 0.3);
+      font-style: italic;
+    }
+
+    /* ============================================================
+       DIFF OUTPUT AREA
+       ============================================================ */
+    .diff-section {
+      background: var(--navy-1);
+      border: 1px solid rgba(148, 163, 184, 0.1);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .diff-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      background: var(--navy-2);
+      border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .diff-title {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--slate);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .diff-title svg {
+      color: var(--blue);
+    }
+
+    .diff-stats {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 11px;
+      font-family: var(--mono);
+    }
+
+    .stat-del {
+      color: var(--del-color);
+    }
+    .stat-add {
+      color: var(--add-color);
+    }
+    .stat-neu {
+      color: var(--slate);
+    }
+
+    .diff-actions {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      margin-left: auto;
+    }
+
+    .diff-output {
+      min-height: 400px;
+      overflow: auto;
+      position: relative;
+    }
+
+    /* PLACEHOLDER STATE */
+    .diff-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 400px;
+      gap: 14px;
+      color: var(--slate-dim);
+      font-size: 13px;
+    }
+
+    .diff-placeholder svg {
+      opacity: 0.3;
+      color: var(--blue);
+    }
+
+    .diff-placeholder p {
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    /* ============================================================
+       UNIFIED VIEW
+       ============================================================ */
+    .unified-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    .unified-table tr {
+      transition: background var(--transition);
+    }
+
+    .unified-table td {
+      padding: 0;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .line-num {
+      color: var(--slate-dim);
+      text-align: right;
+      padding: 2px 10px 2px 12px;
+      user-select: none;
+      min-width: 48px;
+      border-right: 1px solid rgba(148, 163, 184, 0.08);
+      font-size: 11px;
+      vertical-align: top;
+    }
+
+    .sign-col {
+      padding: 2px 10px;
+      font-weight: 700;
+      min-width: 20px;
+      user-select: none;
+      vertical-align: top;
+    }
+
+    .line-content {
+      padding: 2px 14px 2px 4px;
+      width: 100%;
+      vertical-align: top;
+    }
+
+    /* row states */
+    .row-del {
+      background: rgba(239, 68, 68, 0.07);
+    }
+    .row-del .line-num {
+      background: rgba(239, 68, 68, 0.1);
+      border-right-color: rgba(239, 68, 68, 0.2);
+    }
+    .row-del .sign-col {
+      color: var(--del-color);
+    }
+    .row-del .line-content {
+      color: #fca5a5;
+    }
+    .row-del .gutter {
+      background: rgba(239, 68, 68, 0.3);
+    }
+
+    .row-add {
+      background: rgba(74, 222, 128, 0.06);
+    }
+    .row-add .line-num {
+      background: rgba(74, 222, 128, 0.08);
+      border-right-color: rgba(74, 222, 128, 0.2);
+    }
+    .row-add .sign-col {
+      color: var(--add-color);
+    }
+    .row-add .line-content {
+      color: #86efac;
+    }
+    .row-add .gutter {
+      background: rgba(74, 222, 128, 0.3);
+    }
+
+    .row-neu .line-num {}
+    .row-neu .sign-col {
+      color: var(--slate-dim);
+    }
+    .row-neu .line-content {
+      color: var(--slate-bright);
+    }
+
+    .gutter {
+      width: 3px;
+      padding: 0;
+      min-width: 3px;
+    }
+
+    /* word-level highlights inside lines */
+    .word-del {
+      background: rgba(239, 68, 68, 0.28);
+      color: #fca5a5;
+      border-radius: 2px;
+      padding: 0 1px;
+    }
+    .word-add {
+      background: rgba(74, 222, 128, 0.22);
+      color: #86efac;
+      border-radius: 2px;
+      padding: 0 1px;
+    }
+
+    /* ============================================================
+       SPLIT VIEW
+       ============================================================ */
+    .split-wrapper {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      min-height: 400px;
+    }
+
+    .split-col {
+      overflow: auto;
+    }
+
+    .split-col:first-child {
+      border-right: 1px solid rgba(148, 163, 184, 0.08);
+    }
+
+    .split-col-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      background: var(--navy-2);
+      border-bottom: 1px solid rgba(148, 163, 184, 0.06);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
+    .split-col-header.left {
+      color: #f87171;
+    }
+    .split-col-header.right {
+      color: var(--add-color);
+    }
+
+    .split-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    .split-table td {
+      padding: 0;
+      white-space: pre-wrap;
+      word-break: break-all;
+      vertical-align: top;
+    }
+
+    .empty-row {
+      background: rgba(148, 163, 184, 0.03);
+    }
+    .empty-row td {
+      color: transparent;
+      user-select: none;
+    }
+
+    /* ============================================================
+       COPY TOAST
+       ============================================================ */
+    .toast {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      background: #1a2e4a;
+      border: 1px solid rgba(59, 130, 246, 0.4);
+      color: var(--white);
+      padding: 10px 18px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      z-index: 999;
+      transform: translateY(0);
+      opacity: 1;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .toast.hidden {
+      opacity: 0;
+      transform: translateY(12px);
+      pointer-events: none;
+    }
+
+    /* ============================================================
+       LOADING INDICATOR
+       ============================================================ */
+    .loading-bar {
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--blue), transparent);
+      width: 60%;
+      animation: sweep 1.2s ease-in-out infinite;
+      border-radius: 2px;
+      margin: 0 auto;
+    }
+
+    @keyframes sweep {
+      0% {
+        transform: translateX(-100%);
+      }
+      100% {
+        transform: translateX(250%);
+      }
+    }
+
+    /* ============================================================
+       EMPTY STATE ANIMATION
+       ============================================================ */
+    @keyframes pulse-ring {
+      0%,
+      100% {
+        opacity: 0.2;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 0.5;
+        transform: scale(1.08);
+      }
+    }
+
+    .pulse-icon {
+      animation: pulse-ring 3s ease-in-out infinite;
+    }
+
+    /* ============================================================
+       RESPONSIVE
+       ============================================================ */
+    @media (max-width: 900px) {
+      .split-wrapper {
+        grid-template-columns: 1fr;
+      }
+      .split-col:first-child {
+        border-right: none;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+      }
+      .toolbar {
+        gap: 8px;
+      }
+      header {
+        padding: 0 14px;
+      }
+      .app-wrapper {
+        padding: 12px 12px 30px;
+      }
+    }
+
+    @media (max-width: 600px) {
+      .header-center,
+      .header-right .stat-pill {
+        display: none;
+      }
+      .brand-name {
+        font-size: 15px;
+      }
+    }
+
+    /* ============================================================
+       HIGHLIGHT HOVER ON ROWS
+       ============================================================ */
+    .unified-table tr:hover .line-content {
+      filter: brightness(1.08);
+    }
+    .split-table tr:hover .line-content {
+      filter: brightness(1.06);
+    }
+
+    /* ============================================================
+       SCROLLBAR SYNC INDICATOR
+       ============================================================ */
+    .sync-badge {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--blue);
+      background: var(--blue-glow);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      border-radius: 10px;
+      padding: 1px 7px;
+      margin-left: auto;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- ============================================================
+       HEADER
+       ============================================================ -->
+  <header>
+    <div class="header-left">
+      <img class="logo-img" src="https://i.postimg.cc/Kvg50f5n/IMG-20250812-164118-putih.png" alt="Smart Diff Logo" onerror="this.style.display='none'" />
+      <span class="brand-name">Smart<span>Diff</span></span>|<span>Muhaajir Delta<span></span>
+    </div>
+
+    <div class="header-center">
+      <span class="badge">v3.0</span>
+    </div>
+
+    <div class="header-right">
+      <!-- Live stats updated after compare -->
+      <div class="stat-pill" id="stat-del">
+        <span class="dot del"></span>
+        <span id="stat-del-val">0 removed</span>
+      </div>
+      <div class="stat-pill" id="stat-add">
+        <span class="dot add"></span>
+        <span id="stat-add-val">0 added</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============================================================
+       MAIN APP
+       ============================================================ -->
+  <div class="app-wrapper">
+    <!-- TOOLBAR -->
+    <div class="toolbar">
+      <!-- Primary actions -->
+      <div class="toolbar-section">
+        <button class="btn btn-primary" id="btn-compare" onclick="runCompare()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
+          </svg>
+          Compare
+        </button>
+
+        <button class="btn btn-ghost" onclick="clearBoth()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6" />
+            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+            <path d="M10 11v6" />
+            <path d="M14 11v6" />
+          </svg>
+          Clear Both
+        </button>
+
+        <button class="btn btn-ghost" onclick="swapTexts()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M7 16V4m0 0L3 8m4-4l4 4" />
+            <path d="M17 8v12m0 0l4-4m-4 4l-4-4" />
+          </svg>
+          Swap
+        </button>
+      </div>
+
+      <div class="toolbar-divider"></div>
+
+      <!-- Diff granularity -->
+      <div class="toolbar-section">
+        <span style="font-size:11px;color:var(--slate-dim);font-weight:600;letter-spacing:.05em;text-transform:uppercase;">Mode</span>
+        <div class="toggle-group">
+          <button class="toggle-option active" id="mode-line" onclick="setMode('line')">Line</button>
+          <button class="toggle-option" id="mode-word" onclick="setMode('word')">Word</button>
+        </div>
+      </div>
+
+      <div class="toolbar-divider"></div>
+
+      <!-- Options -->
+      <div class="toolbar-section" style="gap:14px;">
+        <label class="checkbox-label">
+          <input type="checkbox" id="opt-ignore-case" onchange="debouncedCompare()" />
+          Ignore Case
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="opt-ignore-ws" onchange="debouncedCompare()" />
+          Ignore Whitespace
+        </label>
+      </div>
+
+      <div class="toolbar-divider"></div>
+
+      <!-- View mode -->
+      <div class="toolbar-section">
+        <span style="font-size:11px;color:var(--slate-dim);font-weight:600;letter-spacing:.05em;text-transform:uppercase;">View</span>
+        <div class="toggle-group">
+          <button class="toggle-option active" id="view-split" onclick="setView('split')">Split</button>
+          <button class="toggle-option" id="view-unified" onclick="setView('unified')">Unified</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- INPUT PANES -->
+    <div class="input-area">
+      <!-- Original -->
+      <div class="pane">
+        <div class="pane-header">
+          <span class="pane-label original">▪ Original Text</span>
+          <div class="pane-actions">
+            <span class="char-count" id="count-a">0 chars</span>
+            <label class="upload-btn" for="upload-a">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+              Upload
+            </label>
+            <input type="file" id="upload-a" accept=".txt,.md,.json,.csv,.js,.ts,.html,.css,.py" onchange="loadFile(this,'a')" />
+            <button class="btn btn-sm btn-ghost" onclick="clearPane('a')">Clear</button>
+          </div>
+        </div>
+        <textarea id="text-a" placeholder="Paste or type original text here…" oninput="updateCount('a'); debouncedCompare()" spellcheck="false"></textarea>
+      </div>
+
+      <!-- Changed -->
+      <div class="pane">
+        <div class="pane-header">
+          <span class="pane-label changed">▪ Changed Text</span>
+          <div class="pane-actions">
+            <span class="char-count" id="count-b">0 chars</span>
+            <label class="upload-btn" for="upload-b">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+              Upload
+            </label>
+            <input type="file" id="upload-b" accept=".txt,.md,.json,.csv,.js,.ts,.html,.css,.py" onchange="loadFile(this,'b')" />
+            <button class="btn btn-sm btn-ghost" onclick="clearPane('b')">Clear</button>
+          </div>
+        </div>
+        <textarea id="text-b" placeholder="Paste or type the changed text here…" oninput="updateCount('b'); debouncedCompare()" spellcheck="false"></textarea>
+      </div>
+    </div>
+
+    <!-- DIFF OUTPUT -->
+    <div class="diff-section">
+      <div class="diff-header">
+        <div class="diff-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          Diff Output
+        </div>
+        <div class="diff-stats" id="diff-stats" style="display:none;">
+          <span class="stat-del" id="ds-removed">— 0 lines</span>
+          <span style="color:var(--slate-dim);">|</span>
+          <span class="stat-add" id="ds-added">+ 0 lines</span>
+          <span style="color:var(--slate-dim);">|</span>
+          <span class="stat-neu" id="ds-equal">= 0 lines</span>
+        </div>
+        <div class="diff-actions">
+          <button class="btn btn-sm btn-ghost" onclick="copyDiff()" title="Copy diff as plain text">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" />
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+            </svg>
+            Copy
+          </button>
+          <button class="btn btn-sm btn-ghost" onclick="downloadDiff()" title="Download diff">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 0-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Export
+          </button>
+        </div>
+      </div>
+
+      <div class="diff-output" id="diff-output">
+        <!-- Placeholder -->
+        <div class="diff-placeholder" id="diff-placeholder">
+          <svg class="pulse-icon" width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="16" y1="13" x2="8" y2="13" />
+            <line x1="16" y1="17" x2="8" y2="17" />
+            <polyline points="10 9 9 9 8 9" />
+          </svg>
+          <p style="color:var(--slate);">Enter text in both panes and press <strong style="color:var(--blue)">Compare</strong><br />or start typing — live preview is enabled.</p>
+        </div>
+      </div>
+    </div>
+<!-- FOOTER dari footer-essentials -->
+<footer class="footer">
+  <img src="https://i.postimg.cc/Kvg50f5n/IMG-20250812-164118-putih.png" alt="Logo Muhaajir" class="footer-logo" loading="lazy" decoding="async">
+  <div class="footer-name">Muhaajir Delta</div>
+  <div class="footer-tagline">Muhaajir:Where change becomes clear</div>
+
+  <div class="footer-links">
+    <a href="#privacy" class="footer-link"><i class="fas fa-shield-alt"></i> Privasi</a>
+    <a href="#terms" class="footer-link"><i class="fas fa-file-contract"></i> Syarat</a>
+</div> <div class="social-links">
+    <a href="https://www.youtube.com/@hajirstein" class="social-link" aria-label="YouTube"><i class="fab fa-youtube"></i></a>
+    <a href="https://www.tiktok.com/@muhaajir_muhaajir" class="social-link" aria-label="TikTok"><i class="fab fa-tiktok"></i></a>
+    <a href="https://www.instagram.com/muhaajirere" class="social-link" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+    <a href="https://github.com/hajirmuhaajir" class="social-link" aria-label="GitHub"><i class="fab fa-github"></i></a>
+</div>
+
+  <div class="footer-divider"></div>
+  <div class="copyright">© 2026 Muhaajir. All rights reserved.</div>
+</footer>
+
+    <!-- TOAST NOTIFICATION -->
+    <div class="toast hidden" id="toast">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2.5">
+        <polyline points="20 6 9 17 4 12" />
+      </svg>
+      <span id="toast-msg">Copied!</span>
+    </div>
+  </div>
+
+  <!-- ============================================================JAVASCRIPT============================================================ -->
+  <script>
+    /* ====================================================STATE==================================================== */
+    let diffMode = 'line'; // 'line' | 'word'
+    let viewMode = 'split'; // 'split' | 'unified'
+    let debounceTimer = null;
+    let lastDiffResult = []; // store for copy/export
+
+    /* ====================================================TOOLBAR CONTROLS==================================================== */
+    function setMode(m) {
+      diffMode = m;
+      document.getElementById('mode-line').classList.toggle('active', m === 'line');
+      document.getElementById('mode-word').classList.toggle('active', m === 'word');
+      runCompare();
+    }
+
+    function setView(v) {
+      viewMode = v;
+      document.getElementById('view-split').classList.toggle('active', v === 'split');
+      document.getElementById('view-unified').classList.toggle('active', v === 'unified');
+      runCompare();
+    }
+
+    function clearBoth() {
+      document.getElementById('text-a').value = '';
+      document.getElementById('text-b').value = '';
+      updateCount('a');
+      updateCount('b');
+      resetOutput();
+    }
+
+    function clearPane(id) {
+      document.getElementById('text-' + id).value = '';
+      updateCount(id);
+      debouncedCompare();
+    }
+
+    function swapTexts() {
+      const a = document.getElementById('text-a');
+      const b = document.getElementById('text-b');
+      [a.value, b.value] = [b.value, a.value];
+      updateCount('a');
+      updateCount('b');
+      debouncedCompare();
+    }
+
+    /* ====================================================FILE UPLOAD==================================================== */
+    function loadFile(input, side) {
+      const file = input.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        document.getElementById('text-' + side).value = e.target.result;
+        updateCount(side);
+        debouncedCompare();
+      };
+      reader.onerror = () => showToast('Failed to read file.');
+      reader.readAsText(file);
+      input.value = ''; // reset so same file can be re-uploaded
+    }
+
+    /* ====================================================CHAR COUNT==================================================== */
+    function updateCount(side) {
+      const ta = document.getElementById('text-' + side);
+      const el = document.getElementById('count-' + side);
+      const len = ta.value.length;
+      el.textContent = len.toLocaleString() + ' chars';
+    }
+
+    /* ====================================================DEBOUNCED COMPARE (live preview)==================================================== */
+    function debouncedCompare() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(runCompare, 500);
+    }
+
+    /* ====================================================MAIN COMPARE FUNCTION==================================================== */
+    function runCompare() {
+      // Check library loaded
+      if (typeof Diff === 'undefined') {
+        showError('jsDiff library failed to load. Check your internet connection.');
+        return;
+      }
+
+      let textA = document.getElementById('text-a').value;
+      let textB = document.getElementById('text-b').value;
+
+      if (!textA.trim() && !textB.trim()) {
+        resetOutput();
+        return;
+      }
+
+      const ignoreCase = document.getElementById('opt-ignore-case').checked;
+      const ignoreWS = document.getElementById('opt-ignore-ws').checked;
+
+      // Apply transformations
+      if (ignoreCase) {
+        textA = textA.toLowerCase();
+        textB = textB.toLowerCase();
+      }
+
+      if (ignoreWS) {
+        textA = normalizeWhitespace(textA);
+        textB = normalizeWhitespace(textB);
+      }
+
+      // Run diff
+      let parts;
+      try {
+        if (diffMode === 'line') {
+          parts = Diff.diffLines(textA, textB, {
+            ignoreWhitespace: ignoreWS
+          });
+        } else {
+          parts = Diff.diffWords(textA, textB, {
+            ignoreWhitespace: ignoreWS
+          });
+        }
+      } catch (e) {
+        showError('Diff error: ' + e.message);
+        return;
+      }
+
+      lastDiffResult = parts;
+
+      // Render
+      if (viewMode === 'unified') {
+        renderUnified(parts);
+      } else {
+        renderSplit(parts);
+      }
+
+      updateStats(parts);
+    }
+
+    /* ====================================================WHITESPACE NORMALIZATION==================================================== */
+    function normalizeWhitespace(text) {
+      return text.split('\n')
+        .map(line => line.trim().replace(/\s+/g, ' '))
+        .join('\n');
+    }
+
+    /* ====================================================RESET OUTPUT==================================================== */
+    function resetOutput() {
+      const out = document.getElementById('diff-output');
+      out.innerHTML = `
+        <div class="diff-placeholder" id="diff-placeholder">
+          <svg class="pulse-icon" width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+            <polyline points="10 9 9 9 8 9"/>
+          </svg>
+          <p style="color:var(--slate);">Enter text in both panes and press <strong style="color:var(--blue)">Compare</strong><br/>or start typing — live preview is enabled.</p>
+        </div>`;
+      document.getElementById('diff-stats').style.display = 'none';
+      document.getElementById('stat-del-val').textContent = '0 removed';
+      document.getElementById('stat-add-val').textContent = '0 added';
+      lastDiffResult = [];
+    }
+
+    /* ====================================================UPDATE STATS==================================================== */
+    function updateStats(parts) {
+      let removed = 0,
+        added = 0,
+        equal = 0;
+      parts.forEach(p => {
+        const lines = p.value.split('\n').filter(l => l !== '' || p.value.endsWith('\n')).length;
+        if (p.removed) removed += lines;
+        else if (p.added) added += lines;
+        else equal += lines;
+      });
+
+      document.getElementById('ds-removed').textContent = `— ${removed} lines`;
+      document.getElementById('ds-added').textContent = `+ ${added} lines`;
+      document.getElementById('ds-equal').textContent = `= ${equal} lines`;
+      document.getElementById('diff-stats').style.display = 'flex';
+
+      document.getElementById('stat-del-val').textContent = `${removed} removed`;
+      document.getElementById('stat-add-val').textContent = `${added} added`;
+    }
+
+    /* ====================================================SHOW ERROR==================================================== */
+    function showError(msg) {
+      const out = document.getElementById('diff-output');
+      out.innerHTML = `<div class="diff-placeholder"><p style="color:#f87171;">${esc(msg)}</p></div>`;
+    }
+
+    /* ==================================================== ESCAPE HTML==================================================== */
+    function esc(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    /* ====================================================RENDER UNIFIED VIEW==================================================== */
+    function renderUnified(parts) {
+      const out = document.getElementById('diff-output');
+
+      if (diffMode === 'word') {
+        // Word mode: render inline spans in a single block
+        out.innerHTML = renderUnifiedWord(parts);
+        return;
+      }
+
+      // Line mode
+      let html = '<table class="unified-table" aria-label="Diff result">';
+      let lineOld = 1,
+        lineNew = 1;
+
+      parts.forEach(part => {
+        const lines = part.value.split('\n');
+        // Remove trailing empty string from split
+        if (lines[lines.length - 1] === '') lines.pop();
+
+        lines.forEach(line => {
+          if (part.removed) {
+            html += `<tr class="row-del">
+              <td class="gutter"></td>
+              <td class="line-num">${lineOld++}</td>
+              <td class="line-num" style="color:transparent;">·</td>
+              <td class="sign-col">−</td>
+              <td class="line-content">${esc(line) || '&nbsp;'}</td>
+            </tr>`;
+          } else if (part.added) {
+            html += `<tr class="row-add">
+              <td class="gutter"></td>
+              <td class="line-num" style="color:transparent;">·</td>
+              <td class="line-num">${lineNew++}</td>
+              <td class="sign-col">+</td>
+              <td class="line-content">${esc(line) || '&nbsp;'}</td>
+            </tr>`;
+          } else {
+            html += `<tr class="row-neu">
+              <td class="gutter" style="background:transparent;"></td>
+              <td class="line-num">${lineOld++}</td>
+              <td class="line-num">${lineNew++}</td>
+              <td class="sign-col" style="color:transparent;">·</td>
+              <td class="line-content">${esc(line) || '&nbsp;'}</td>
+            </tr>`;
+          }
+        });
+      });
+
+      html += '</table>';
+      out.innerHTML = html;
+    }
+
+    /* Word-level unified */
+    function renderUnifiedWord(parts) {
+      let html = '<div style="padding:14px;font-family:var(--mono);font-size:13px;line-height:1.8;color:var(--slate-bright);">';
+      parts.forEach(part => {
+        const escaped = esc(part.value);
+        if (part.removed) {
+          html += `<span class="word-del">${escaped}</span>`;
+        } else if (part.added) {
+          html += `<span class="word-add">${escaped}</span>`;
+        } else {
+          html += `<span>${escaped}</span>`;
+        }
+      });
+      html += '</div>';
+      return html;
+    }
+
+    /* ====================================================RENDER SPLIT VIEW==================================================== */
+    function renderSplit(parts) {
+      const out = document.getElementById('diff-output');
+
+      if (diffMode === 'word') {
+        // Word split: show original on left, changed on right
+        out.innerHTML = renderSplitWord(parts);
+        return;
+      }
+
+      // Line mode split
+      // Build aligned rows: pair removed with added lines
+      const leftRows = [];
+      const rightRows = [];
+
+      // Collect pairs
+      let i = 0;
+      while (i < parts.length) {
+        const p = parts[i];
+        if (!p.removed && !p.added) {
+          // unchanged block
+          const lines = splitLines(p.value);
+          lines.forEach(l => {
+            leftRows.push({
+              type: 'neu',
+              value: l
+            });
+            rightRows.push({
+              type: 'neu',
+              value: l
+            });
+          });
+          i++;
+        } else if (p.removed && parts[i + 1] && parts[i + 1].added) {
+          // paired change
+          const removedLines = splitLines(p.value);
+          const addedLines = splitLines(parts[i + 1].value);
+          const maxLen = Math.max(removedLines.length, addedLines.length);
+          for (let j = 0; j < maxLen; j++) {
+            leftRows.push({
+              type: j < removedLines.length ? 'del' : 'empty',
+              value: removedLines[j] || ''
+            });
+            rightRows.push({
+              type: j < addedLines.length ? 'add' : 'empty',
+              value: addedLines[j] || ''
+            });
+          }
+          i += 2;
+        } else if (p.removed) {
+          const lines = splitLines(p.value);
+          lines.forEach(l => {
+            leftRows.push({
+              type: 'del',
+              value: l
+            });
+            rightRows.push({
+              type: 'empty',
+              value: ''
+            });
+          });
+          i++;
+        } else if (p.added) {
+          const lines = splitLines(p.value);
+          lines.forEach(l => {
+            leftRows.push({
+              type: 'empty',
+              value: ''
+            });
+            rightRows.push({
+              type: 'add',
+              value: l
+            });
+          });
+          i++;
+        } else {
+          i++;
+        }
+      }
+
+      const buildTable = (rows, side) => {
+        let lineNum = 1;
+        let t = `<table class="split-table">`;
+        rows.forEach(row => {
+          if (row.type === 'empty') {
+            t += `<tr class="empty-row">
+              <td class="gutter" style="background:rgba(148,163,184,0.06);width:3px;"></td>
+              <td class="line-num" style="color:transparent;">·</td>
+              <td class="sign-col" style="color:transparent;">·</td>
+              <td class="line-content">&nbsp;</td>
+            </tr>`;
+          } else if (row.type === 'del') {
+            t += `<tr class="row-del">
+              <td class="gutter"></td>
+              <td class="line-num">${lineNum++}</td>
+              <td class="sign-col">−</td>
+              <td class="line-content">${esc(row.value) || '&nbsp;'}</td>
+            </tr>`;
+          } else if (row.type === 'add') {
+            t += `<tr class="row-add">
+              <td class="gutter"></td>
+              <td class="line-num">${lineNum++}</td>
+              <td class="sign-col">+</td>
+              <td class="line-content">${esc(row.value) || '&nbsp;'}</td>
+            </tr>`;
+          } else {
+            t += `<tr class="row-neu">
+              <td class="gutter" style="background:transparent;"></td>
+              <td class="line-num">${lineNum++}</td>
+              <td class="sign-col" style="color:transparent;">·</td>
+              <td class="line-content">${esc(row.value) || '&nbsp;'}</td>
+            </tr>`;
+          }
+        });
+        t += '</table>';
+        return t;
+      };
+
+      const colorLeft = side => `color:#f87171;`;
+      const colorRight = side => `color:var(--add-color);`;
+
+      const html = `
+        <div class="split-wrapper">
+          <div class="split-col" id="split-left">
+            <div class="split-col-header left">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              Original
+            </div>
+            ${buildTable(leftRows, 'left')}
+          </div>
+          <div class="split-col" id="split-right">
+            <div class="split-col-header right">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              Changed
+              <span class="sync-badge">SYNC</span>
+            </div>
+            ${buildTable(rightRows, 'right')}
+          </div>
+        </div>`;
+
+      out.innerHTML = html;
+
+      // Sync scroll between split columns
+      const left = document.getElementById('split-left');
+      const right = document.getElementById('split-right');
+      let syncing = false;
+      left.addEventListener('scroll', () => {
+        if (syncing) return;
+        syncing = true;
+        right.scrollTop = left.scrollTop;
+        right.scrollLeft = left.scrollLeft;
+        syncing = false;
+      });
+      right.addEventListener('scroll', () => {
+        if (syncing) return;
+        syncing = true;
+        left.scrollTop = right.scrollTop;
+        left.scrollLeft = right.scrollLeft;
+        syncing = false;
+      });
+    }
+
+    /* Word split */
+    function renderSplitWord(parts) {
+      let leftHtml = '';
+      let rightHtml = '';
+
+      parts.forEach(part => {
+        const escaped = esc(part.value);
+        if (part.removed) {
+          leftHtml += `<span class="word-del">${escaped}</span>`;
+        } else if (part.added) {
+          rightHtml += `<span class="word-add">${escaped}</span>`;
+        } else {
+          leftHtml += `<span>${escaped}</span>`;
+          rightHtml += `<span>${escaped}</span>`;
+        }
+      });
+
+      const wrap = (content, side) => `
+        <div class="split-col" id="split-${side}">
+          <div class="split-col-header ${side === 'left' ? 'left' : 'right'}">
+            ${side === 'left' ?
+              '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Original' :
+              '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Changed'}
+          </div>
+          <div style="padding:14px;font-family:var(--mono);font-size:13px;line-height:1.8;color:var(--slate-bright);">${content || '&nbsp;'}</div>
+        </div>`;
+
+      return `<div class="split-wrapper">${wrap(leftHtml, 'left')}${wrap(rightHtml, 'right')}</div>`;
+    }
+
+    /* Helper: split text into lines, preserving empties correctly */
+    function splitLines(str) {
+      const lines = str.split('\n');
+      if (lines[lines.length - 1] === '') lines.pop();
+      return lines;
+    }
+
+    /* ====================================================COPY DIFF ==================================================== */
+    function copyDiff() {
+      if (!lastDiffResult.length) {
+        showToast('Nothing to copy yet.');
+        return;
+      }
+
+      const text = lastDiffResult.map(p => {
+        const lines = splitLines(p.value);
+        if (p.removed) return lines.map(l => '- ' + l).join('\n');
+        if (p.added) return lines.map(l => '+ ' + l).join('\n');
+        return lines.map(l => '  ' + l).join('\n');
+      }).join('\n');
+
+      navigator.clipboard.writeText(text)
+        .then(() => showToast('Diff copied to clipboard!'))
+        .catch(() => {
+          // Fallback
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+          showToast('Diff copied!');
+        });
+    }
+
+    /* ====================================================DOWNLOAD DIFF==================================================== */
+    function downloadDiff() {
+      if (!lastDiffResult.length) {
+        showToast('Nothing to export yet.');
+        return;
+      }
+
+      const text = lastDiffResult.map(p => {
+        const lines = splitLines(p.value);
+        if (p.removed) return lines.map(l => '- ' + l).join('\n');
+        if (p.added) return lines.map(l => '+ ' + l).join('\n');
+        return lines.map(l => '  ' + l).join('\n');
+      }).join('\n');
+
+      const blob = new Blob([text], {
+        type: 'text/plain'
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'smart-diff-output.diff';
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('Diff exported!');
+    }
+
+    /* ====================================================TOAST==================================================== */
+    let toastTimer;
+
+    function showToast(msg, duration = 2500) {
+      const t = document.getElementById('toast');
+      document.getElementById('toast-msg').textContent = msg;
+      t.classList.remove('hidden');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.add('hidden'), duration);
+    }
+
+    /* ====================================================KEYBOARD SHORTCUT: Ctrl+Enter to compare ==================================================== */
+    document.addEventListener('keydown', e => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        runCompare();
+      }
+    });
+
+    /* ====================================================  INIT  ==================================================== */
+    updateCount('a');
+    updateCount('b');
+  </script>
+</body>
+</html>
